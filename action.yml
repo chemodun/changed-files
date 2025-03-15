@@ -1,0 +1,57 @@
+name: Check changed files
+description: Check for changes in specified by patterns files
+inputs:
+  files:
+    description: 'List of file names or patterns (compatible with basic grep) to check for changes'
+    required: true
+    default: '.*'
+outputs:
+  all_changed_files:
+    description: 'List of all changed(added or modified) files'
+    value: ${{ steps.changed-files.outputs.all_changed_files }}
+  deleted_files:
+    description: 'List of deleted files'
+    value: ${{ steps.changed-files.outputs.deleted_files }}
+  any_changed:
+    description: 'Whether any specified files were changed'
+    value: ${{ steps.changed-files.outputs.any_changed }}
+runs:
+  using: "composite"
+  steps:
+    - name: Get changed files
+      id: changed-files
+      shell: bash
+      run: |
+        # Initialize variables
+        all_changed_files=""
+        deleted_files=""
+        any_changed="false"
+        # Loop through each file pattern and check for changes
+        for pattern in ${{ inputs.files }}; do
+          # Get the list of changed files for the current pattern
+          current_all_changed_files=$(git diff --name-status ${{ github.event.before }} ${{ github.event.after }} | grep '^[AM]' | grep "$pattern" | awk '{print $2}' | xargs  || echo "")
+          # Get the list of deleted files for the current pattern
+          current_deleted_files=$(git diff --name-status ${{ github.event.before }} ${{ github.event.after }} | grep '^[D]' | grep "$pattern" | awk '{print $2}' | xargs  || echo "")
+          # Check if there are any changes for the current pattern
+          current_any_changed=$(git diff --name-status ${{ github.event.before }} ${{ github.event.after }} | grep "$pattern" | wc -l)
+
+          # Append the current changed files to the overall list
+          if [ -n "$current_all_changed_files" ]; then
+            all_changed_files="$all_changed_files $current_all_changed_files"
+          fi
+
+          # Append the current deleted files to the overall list
+          if [ -n "$current_deleted_files" ]; then
+            deleted_files="$deleted_files $current_deleted_files"
+          fi
+
+          # Set any_changes to true if there are any changes for the current mask
+          if [ "$current_any_changed" -gt 0 ]; then
+            any_changed="true"
+          fi
+        done
+        
+        # Set the outputs
+        echo "all_changed_files=${all_changed_files}" >> $GITHUB_OUTPUT
+        echo "deleted_files=${deleted_files}" >> $GITHUB_OUTPUT
+        echo "any_changed=${any_changed}" >> $GITHUB_OUTPUT
