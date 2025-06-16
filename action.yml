@@ -28,7 +28,7 @@ runs:
         deleted_files=""
         any_changed="false"
         # Loop through each file pattern and check for changes
-        for pattern in "${{ inputs.files }}"; do
+        for pattern in ${{ inputs.files }}; do
           # Get the list of changed files for the current pattern
           current_all_changed_files=$(git diff --name-status ${{ github.event.before }} ${{ github.event.after }} | grep '^[AM]' | grep "$pattern" | awk '{print $2}' | xargs  || echo "")
           # Get the list of deleted files for the current pattern
